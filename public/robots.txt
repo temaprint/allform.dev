@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://allform.dev/sitemap.xml
+
+# Disallow edit pages from indexing (they are for editing, not viewing)
+Disallow: /edit/
+
+# Allow PDF pages (they are SEO-optimized landing pages)
+Allow: /pdf/
+
+# Allow static assets
+Allow: /favicon.svg
+Allow: /*.pdf

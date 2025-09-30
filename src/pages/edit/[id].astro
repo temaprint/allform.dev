@@ -1,0 +1,68 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PdfEditor from '../../components/PdfEditor.jsx';
+import { pdfForms } from '../../data/forms.js';
+
+export function getStaticPaths() {
+  return pdfForms.map((form) => ({
+    params: { id: form.id },
+    props: { form }
+  }));
+}
+
+const { form } = Astro.props;
+
+if (!form) {
+  return Astro.redirect('/404');
+}
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-4">
+            <a href="/" class="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors">
+              <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+              </svg>
+              <span class="font-bold text-xl">AllForm.dev</span>
+            </a>
+            <div class="hidden sm:block w-px h-8 bg-gray-300"></div>
+            <div class="text-sm text-gray-600">
+              <span class="font-medium">Editing:</span> {form.title}
+            </div>
+          </div>
+          
+          <div class="flex items-center space-x-4">
+            <a 
+              href="/" 
+              class="text-gray-600 hover:text-gray-900 transition-colors font-medium"
+            >
+              ← Back to Forms
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Editor Container -->
+    <div class="flex-1">
+      <PdfEditor 
+        pdfUrl={form.url} 
+        formTitle={form.title}
+        client:load 
+      />
+    </div>
+  </div>
+</Layout>
+
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+</style>

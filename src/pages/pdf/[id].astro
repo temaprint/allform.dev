@@ -1,0 +1,294 @@
+---
+import PdfLayout from '../../layouts/PdfLayout.astro';
+import { pdfForms } from '../../data/forms.js';
+import { FileText, Edit3, Download, Shield, Clock, Users, Globe, CheckCircle } from 'lucide-react';
+
+export function getStaticPaths() {
+  return pdfForms.map((form) => ({
+    params: { id: form.id },
+    props: { form }
+  }));
+}
+
+const { form } = Astro.props;
+
+if (!form) {
+  return Astro.redirect('/404');
+}
+
+// SEO Meta
+const title = form.title;
+const description = form.description;
+const keywords = `${form.category.toLowerCase()}, pdf form, online editor, ${form.title.toLowerCase()}, allform.dev`;
+const canonicalUrl = `https://allform.dev/pdf/${form.id}`;
+---
+
+<PdfLayout 
+  title={title}
+  description={description}
+  keywords={keywords}
+  formTitle={form.title}
+  formCategory={form.category}
+  canonicalUrl={canonicalUrl}
+>
+  <div class="min-h-screen bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-4">
+            <a href="/" class="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors">
+              <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+              </svg>
+              <span class="font-bold text-xl">AllForm.dev</span>
+            </a>
+            <div class="hidden sm:block w-px h-8 bg-gray-300"></div>
+            <nav class="flex items-center space-x-4 text-sm">
+              <a href="/" class="text-gray-600 hover:text-gray-900">Home</a>
+              <span class="text-gray-400">/</span>
+              <span class="text-gray-900 font-medium">{form.category}</span>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="grid lg:grid-cols-3 gap-8">
+        <!-- Left Column - Form Info -->
+        <div class="lg:col-span-2">
+          <!-- Form Header -->
+          <div class="bg-white rounded-2xl shadow-lg p-8 mb-8 seo-content">
+            <div class="flex items-start justify-between mb-6">
+              <div class="flex items-center space-x-4">
+                <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-4 rounded-2xl">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 class="text-3xl font-bold text-gray-900 mb-2">{form.title}</h1>
+                  <div class="flex items-center space-x-4 text-sm text-gray-600">
+                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                      {form.category}
+                    </span>
+                    <span class="flex items-center space-x-1">
+                      <FileText className="w-4 h-4" />
+                      <span>PDF Form</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <p class="text-lg text-gray-700 mb-6 leading-relaxed">
+              {form.description}
+            </p>
+            
+            <!-- SEO Content -->
+            <div class="prose prose-lg max-w-none mb-6">
+              <h2 class="text-2xl font-semibold text-gray-900 mb-4">About This Form</h2>
+              <p class="text-gray-700 leading-relaxed">
+                This {form.category.toLowerCase()} form is designed for professional use and can be easily edited online using our advanced PDF editor. 
+                The form is compatible with all modern browsers and requires no software installation.
+              </p>
+              
+              <h3 class="text-xl font-semibold text-gray-900 mb-3 mt-6">How to Use This Form</h3>
+              <ul class="list-disc list-inside text-gray-700 space-y-2">
+                <li>Click "Edit Form Online" to open the form in our editor</li>
+                <li>Fill in all required fields with your information</li>
+                <li>Add signatures, highlights, or annotations as needed</li>
+                <li>Download the completed form as a PDF file</li>
+                <li>Submit or print the form as required</li>
+              </ul>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4">
+              <a
+                href={`/edit/${form.id}`}
+                class="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                <Edit3 className="w-5 h-5" />
+                <span>Edit Form Online</span>
+              </a>
+              
+              <a
+                href={form.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center space-x-2 border-2 border-gray-300 hover:border-blue-500 text-gray-700 hover:text-blue-600 px-8 py-4 rounded-xl font-semibold transition-all duration-200"
+              >
+                <Download className="w-5 h-5" />
+                <span>Download PDF</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Form Preview -->
+          <div class="bg-white rounded-2xl shadow-lg p-8">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Form Preview</h2>
+            <div class="relative bg-gray-100 rounded-xl overflow-hidden">
+              <img 
+                src={form.thumbnail} 
+                alt={`${form.title} preview`}
+                class="w-full h-96 object-cover"
+              />
+              <div class="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
+                <div class="bg-white/90 backdrop-blur-sm px-6 py-3 rounded-lg">
+                  <span class="text-gray-800 font-semibold">Click "Edit Form Online" to start editing</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column - Features & Info -->
+        <div class="space-y-6">
+          <!-- Features -->
+          <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Why Use AllForm.dev?</h3>
+            <div class="space-y-4">
+              <div class="flex items-start space-x-3">
+                <div class="bg-green-100 p-2 rounded-lg">
+                  <Shield className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <h4 class="font-semibold text-gray-900">Secure & Private</h4>
+                  <p class="text-sm text-gray-600">All processing happens in your browser</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start space-x-3">
+                <div class="bg-blue-100 p-2 rounded-lg">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h4 class="font-semibold text-gray-900">Instant Editing</h4>
+                  <p class="text-sm text-gray-600">No software installation required</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start space-x-3">
+                <div class="bg-purple-100 p-2 rounded-lg">
+                  <Download className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h4 class="font-semibold text-gray-900">Easy Download</h4>
+                  <p class="text-sm text-gray-600">Get your completed form instantly</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Details -->
+          <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Form Details</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Category:</span>
+                <span class="font-medium text-gray-900">{form.category}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Type:</span>
+                <span class="font-medium text-gray-900">PDF Form</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Editor:</span>
+                <span class="font-medium text-gray-900">AllForm.dev</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Related Forms -->
+          <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-xl font-bold text-gray-900 mb-4">Related Forms</h3>
+            <div class="space-y-3">
+              {pdfForms
+                .filter(f => f.category === form.category && f.id !== form.id)
+                .slice(0, 3)
+                .map(relatedForm => (
+                  <a 
+                    href={`/pdf/${relatedForm.id}`}
+                    class="block p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div class="flex items-center space-x-3">
+                      <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 class="font-medium text-gray-900 text-sm">{relatedForm.title}</h4>
+                        <p class="text-xs text-gray-600">{relatedForm.category}</p>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- CTA Section -->
+    <section class="bg-gradient-to-r from-blue-600 to-purple-600 py-16 mt-16">
+      <div class="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-bold text-white mb-4">
+          Ready to Edit Your Form?
+        </h2>
+        <p class="text-xl text-blue-100 mb-8">
+          Start editing {form.title} right now with our professional online editor.
+        </p>
+        <a
+          href={`/edit/${form.id}`}
+          class="inline-flex items-center space-x-2 bg-white text-blue-600 hover:bg-gray-50 px-8 py-4 rounded-xl font-semibold transition-colors text-lg shadow-lg"
+        >
+          <Edit3 className="w-5 h-5" />
+          <span>Start Editing Now</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- SEO Footer Content -->
+    <footer class="bg-gray-900 text-white py-12 mt-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-3 gap-8">
+          <div>
+            <h3 class="text-xl font-bold mb-4">About AllForm.dev</h3>
+            <p class="text-gray-400 leading-relaxed">
+              Professional online PDF form editor. Edit, fill, and sign PDF forms directly in your browser. 
+              No software installation required.
+            </p>
+          </div>
+          
+          <div>
+            <h3 class="text-xl font-bold mb-4">Form Categories</h3>
+            <ul class="space-y-2 text-gray-400">
+              <li><a href="/#forms" class="hover:text-white transition-colors">All Forms</a></li>
+              <li><a href="/#forms" class="hover:text-white transition-colors">Business Forms</a></li>
+              <li><a href="/#forms" class="hover:text-white transition-colors">Legal Forms</a></li>
+              <li><a href="/#forms" class="hover:text-white transition-colors">Medical Forms</a></li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 class="text-xl font-bold mb-4">Quick Links</h3>
+            <ul class="space-y-2 text-gray-400">
+              <li><a href="/" class="hover:text-white transition-colors">Home</a></li>
+              <li><a href="/#features" class="hover:text-white transition-colors">Features</a></li>
+              <li><a href="/#forms" class="hover:text-white transition-colors">Browse Forms</a></li>
+              <li><a href="/edit/{form.id}" class="hover:text-white transition-colors">Edit {form.title}</a></li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="border-t border-gray-800 mt-8 pt-8 text-center">
+          <p class="text-gray-500 text-sm">
+            © 2024 AllForm.dev. All rights reserved. | 
+            <a href="/privacy" class="hover:text-white transition-colors">Privacy Policy</a> | 
+            <a href="/terms" class="hover:text-white transition-colors">Terms of Service</a>
+          </p>
+        </div>
+      </div>
+    </footer>
+  </div>
+</PdfLayout>
