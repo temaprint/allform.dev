@@ -392,22 +392,6 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{formTitle}</h1>
-            <p className="text-sm text-gray-600 mt-1">Click and edit PDF form fields</p>
-          </div>
-          <a
-            href="/"
-            className="text-primary-600 hover:text-primary-700 font-medium"
-          >
-            ← Back to Forms
-          </a>
-        </div>
-      </div>
-
       {/* Toolbar */}
       <div className="bg-white border-b border-gray-200 px-6 py-2">
                <EditingToolbar
