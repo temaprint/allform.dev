@@ -3,9 +3,17 @@ import { PDFDocument } from 'pdf-lib';
 import PdfViewer from './PdfViewer';
 import EditingToolbar from './EditingToolbar';
 
-console.log('PDFDocument import:', PDFDocument);
-console.log('PDFDocument type:', typeof PDFDocument);
-console.log('PDFDocument methods:', Object.getOwnPropertyNames(PDFDocument));
+// Clean analytics fallback - no console spam
+if (typeof window !== 'undefined' && !window.analytics) {
+  window.analytics = {
+    track: () => {},
+    identify: () => {},
+    page: () => {},
+    group: () => {},
+    alias: () => {},
+    reset: () => {}
+  };
+}
 
 const PdfEditor = ({ pdfUrl, formTitle }) => {
   const [editableDoc, setEditableDoc] = useState(null);
@@ -51,7 +59,30 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
       const pdfBytes = await response.arrayBuffer();
       console.log('PDF bytes loaded:', pdfBytes.byteLength, 'bytes');
       
-      const pdfDoc = await PDFDocument.load(pdfBytes);
+      // Enhanced PDF loading with better error handling
+      let pdfDoc;
+      try {
+        pdfDoc = await PDFDocument.load(pdfBytes, { 
+          ignoreEncryption: true,
+          parseSpeed: 0, // Parse as fast as possible
+          throwOnInvalidBytes: false // Don't throw on invalid bytes
+        });
+      } catch (parseError) {
+        console.error('PDF parsing error:', parseError);
+        
+        // Try alternative loading methods
+        try {
+          pdfDoc = await PDFDocument.load(pdfBytes, { 
+            ignoreEncryption: true,
+            parseSpeed: 1, // Slower but more thorough parsing
+            throwOnInvalidBytes: false
+          });
+        } catch (altError) {
+          console.error('Alternative PDF parsing failed:', altError);
+          throw new Error(`PDF parsing failed: ${parseError.message}. This PDF may be corrupted or use an unsupported format.`);
+        }
+      }
+      
       console.log('PDF document loaded for editing');
       console.log('PDFDocument type:', typeof pdfDoc);
       console.log('PDFDocument methods:', Object.getOwnPropertyNames(pdfDoc));
@@ -59,10 +90,43 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
       
       setEditableDoc(pdfDoc);
       
-      // Initialize edit history
-      const initialState = await pdfDoc.save();
-      setEditHistory([initialState]);
-      setHistoryIndex(0);
+      // Initialize edit history with error handling
+      try {
+        console.log('Saving initial state for history...');
+        
+        // Validate document before saving initial state
+        if (typeof pdfDoc.save !== 'function') {
+          throw new Error('Document save method not available');
+        }
+        
+        // Try to get page count to validate document
+        try {
+          const pageCount = pdfDoc.getPageCount();
+          console.log('Initial document has', pageCount, 'pages');
+        } catch (pageError) {
+          console.warn('Could not get initial page count:', pageError);
+        }
+        
+        const initialState = await pdfDoc.save();
+        
+        if (!initialState || initialState.byteLength === 0) {
+          throw new Error('Initial state is empty');
+        }
+        
+        setEditHistory([initialState]);
+        setHistoryIndex(0);
+        console.log('Initial state saved successfully, size:', initialState.byteLength, 'bytes');
+      } catch (saveError) {
+        console.error('Error saving initial state:', saveError);
+        console.error('Initial state error details:', {
+          message: saveError.message,
+          name: saveError.name,
+          stack: saveError.stack
+        });
+        // Continue without history if save fails
+        setEditHistory([]);
+        setHistoryIndex(-1);
+      }
     } catch (error) {
       console.error('Error loading PDF for editing:', error);
       console.error('Error details:', {
@@ -70,7 +134,22 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
         name: error.name,
         stack: error.stack
       });
-      setLoadError(error.message);
+      
+      // Provide more helpful error messages
+      let errorMessage = error.message;
+      if (error.message.includes('encrypted')) {
+        errorMessage = 'PDF документ зашифрован и не может быть отредактирован. Попробуйте другой документ.';
+      } else if (error.message.includes('Invalid PDF') || error.message.includes('Invalid object ref')) {
+        errorMessage = 'Неверный формат PDF файла. Убедитесь, что файл не поврежден.';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Ошибка загрузки PDF. Проверьте подключение к интернету.';
+      } else if (error.message.includes('Expected instance of t')) {
+        errorMessage = 'Ошибка парсинга PDF. Файл может быть поврежден или использовать неподдерживаемый формат.';
+      } else if (error.message.includes('parsing failed')) {
+        errorMessage = 'Не удалось обработать PDF файл. Попробуйте другой документ.';
+      }
+      
+      setLoadError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -82,10 +161,34 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
 
 
   const handleSave = async () => {
-    if (!editableDoc) return;
+    if (!editableDoc) {
+      console.error('Cannot save: No editable document');
+      return;
+    }
 
     try {
+      // Validate document state before saving
+      console.log('Validating document state before save...');
+      
+      // Check if document is in a valid state
+      if (!editableDoc || typeof editableDoc.save !== 'function') {
+        throw new Error('Document is not in a valid state for saving');
+      }
+
+      // Try to get page count to validate document integrity
+      try {
+        const pageCount = editableDoc.getPageCount();
+        console.log('Document has', pageCount, 'pages');
+      } catch (pageError) {
+        console.warn('Could not get page count, but continuing with save:', pageError);
+      }
+
+      console.log('Saving document...');
       const pdfBytes = await editableDoc.save();
+      
+      if (!pdfBytes || pdfBytes.byteLength === 0) {
+        throw new Error('Saved document is empty');
+      }
 
       // Add to history
       const newHistory = editHistory.slice(0, historyIndex + 1);
@@ -93,17 +196,59 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
       setEditHistory(newHistory);
       setHistoryIndex(newHistory.length - 1);
 
-      console.log('PDF state saved successfully');
+      console.log('PDF state saved successfully, size:', pdfBytes.byteLength, 'bytes');
     } catch (error) {
       console.error('Error saving PDF:', error);
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      // Provide user-friendly error message
+      let errorMessage = 'Ошибка сохранения PDF';
+      if (error.message.includes('Expected instance of t')) {
+        errorMessage = 'PDF документ поврежден. Попробуйте перезагрузить страницу.';
+      } else if (error.message.includes('Document is not in a valid state')) {
+        errorMessage = 'Документ не готов к сохранению. Попробуйте еще раз.';
+      } else if (error.message.includes('Saved document is empty')) {
+        errorMessage = 'Не удалось сохранить документ. Попробуйте еще раз.';
+      }
+      
+      alert(errorMessage);
     }
   };
 
   const handleSaveState = async () => {
-    if (!editableDoc) return;
+    if (!editableDoc) {
+      console.error('Cannot save state: No editable document');
+      return;
+    }
 
     try {
+      // Validate document state before saving
+      console.log('Validating document state before save...');
+      
+      // Check if document is in a valid state
+      if (!editableDoc || typeof editableDoc.save !== 'function') {
+        throw new Error('Document is not in a valid state for saving');
+      }
+
+      // Try to get page count to validate document integrity
+      try {
+        const pageCount = editableDoc.getPageCount();
+        console.log('Document has', pageCount, 'pages');
+      } catch (pageError) {
+        console.warn('Could not get page count, but continuing with save:', pageError);
+      }
+
+      console.log('Saving document state...');
       const pdfBytes = await editableDoc.save();
+      
+      if (!pdfBytes || pdfBytes.byteLength === 0) {
+        throw new Error('Saved document is empty');
+      }
+
       const stateNumber = String(savedStates.length + 1).padStart(4, '0');
       const newState = {
         id: Date.now(),
@@ -115,9 +260,26 @@ const PdfEditor = ({ pdfUrl, formTitle }) => {
 
       setSavedStates(prev => [...prev, newState]);
       setCurrentStateIndex(savedStates.length);
-      console.log('State saved:', newState.name);
+      console.log('State saved successfully:', newState.name, 'Size:', pdfBytes.byteLength, 'bytes');
     } catch (error) {
       console.error('Error saving state:', error);
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      
+      // Provide user-friendly error message
+      let errorMessage = 'Ошибка сохранения состояния';
+      if (error.message.includes('Expected instance of t')) {
+        errorMessage = 'PDF документ поврежден. Попробуйте перезагрузить страницу.';
+      } else if (error.message.includes('Document is not in a valid state')) {
+        errorMessage = 'Документ не готов к сохранению. Попробуйте еще раз.';
+      } else if (error.message.includes('Saved document is empty')) {
+        errorMessage = 'Не удалось сохранить документ. Попробуйте еще раз.';
+      }
+      
+      alert(errorMessage);
     }
   };
 

@@ -31,12 +31,23 @@ if (!form) {
               <span class="font-bold text-xl">AllForm.dev</span>
             </a>
             <div class="hidden sm:block w-px h-8 bg-gray-300"></div>
-            <div class="text-sm text-gray-600">
-              <span class="font-medium">Editing:</span> {form.title}
+            <div class="flex flex-col">
+              <div class="text-sm text-gray-600">
+                <span class="font-medium">Editing:</span> {form.title}
+              </div>
+              <div class="text-xs text-gray-500">
+                Category: {form.category}
+              </div>
             </div>
           </div>
           
           <div class="flex items-center space-x-4">
+            <div class="hidden sm:flex items-center space-x-2 text-sm text-gray-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span>Auto-save enabled</span>
+            </div>
             <a 
               href="/" 
               class="text-gray-600 hover:text-gray-900 transition-colors font-medium"

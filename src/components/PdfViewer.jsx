@@ -2,15 +2,28 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
-// Set up PDF.js worker
+// Clean analytics fallback - no console spam
+if (typeof window !== 'undefined' && !window.analytics) {
+  window.analytics = {
+    track: () => {},
+    identify: () => {},
+    page: () => {},
+    group: () => {},
+    alias: () => {},
+    reset: () => {}
+  };
+}
+
+// Set up PDF.js worker - use local worker file to avoid CDN issues
 if (typeof window !== 'undefined') {
-  // Try to use local worker, fallback to disabling worker
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
-  } catch (error) {
-    console.warn('Failed to set up PDF.js worker, disabling worker:', error);
-    pdfjsLib.GlobalWorkerOptions.workerSrc = false;
-  }
+  console.log('Setting up PDF.js worker...');
+  console.log('Current workerSrc:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+  
+  // Use local worker file to avoid CDN 404 errors
+  // The worker will be disabled in getDocument options anyway
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+  console.log('PDF.js workerSrc set to local:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+  console.log('PDF.js worker setup completed');
 }
 
 const PdfViewer = ({ url, onPdfLoaded, editableDoc, onDocumentChange, activeTool, highlightColor = '#FFFFFF', textSettings, annotations, onAnnotationsChange }) => {
@@ -45,14 +58,55 @@ const PdfViewer = ({ url, onPdfLoaded, editableDoc, onDocumentChange, activeTool
     try {
       setLoading(true);
       setError(null);
-      
+
+      console.log('=== PDF LOADING DEBUG START ===');
       console.log('Loading PDF from URL:', url);
-      
-      // Try to load PDF with minimal options
-      const loadingTask = pdfjsLib.getDocument({
-        url: url,
-        disableWorker: true, // Disable worker to avoid loading issues
-      });
+      console.log('Current workerSrc before load:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+      console.log('WorkerSrc type:', typeof pdfjsLib.GlobalWorkerOptions.workerSrc);
+      console.log('WorkerSrc value:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+
+      // Enhanced PDF loading with better error handling
+      let loadingTask;
+      try {
+        console.log('Creating PDF.js loading task with worker disabled...');
+        const pdfOptions = {
+          url: url,
+          disableWorker: true, // Always disable worker to avoid MIME type issues
+          ignoreEncryption: true, // Ignore encryption for encrypted PDFs
+          maxImageSize: 1024 * 1024, // Limit image size to prevent memory issues
+          isEvalSupported: false, // Disable eval for security
+          disableAutoFetch: true, // Disable auto-fetching
+          disableStream: true, // Disable streaming
+          disableRange: true, // Disable range requests
+          useWorkerFetch: false, // Disable worker fetch
+          isOffscreenCanvasSupported: false, // Disable offscreen canvas
+          // Add error handling options
+          stopAtErrors: false, // Don't stop on parsing errors
+          maxErrors: 100, // Limit number of errors to process
+          disableFontFace: false, // Enable font face loading for better text rendering
+          disableCreateObjectURL: false, // Enable object URL creation for better performance
+          // Add standard font data URL to fix font warnings
+          standardFontDataUrl: '/pdf.worker.min.js', // Use worker file as fallback
+        };
+        console.log('PDF.js options:', pdfOptions);
+        
+        loadingTask = pdfjsLib.getDocument(pdfOptions);
+        console.log('PDF.js loading task created successfully');
+      } catch (configError) {
+        console.error('PDF.js configuration error:', configError);
+        console.log('Falling back to minimal configuration...');
+        // Fallback to minimal configuration
+        const fallbackOptions = {
+          url: url,
+          disableWorker: true,
+          ignoreEncryption: true,
+          useWorkerFetch: false,
+          isOffscreenCanvasSupported: false
+        };
+        console.log('Fallback PDF.js options:', fallbackOptions);
+        loadingTask = pdfjsLib.getDocument(fallbackOptions);
+        console.log('Fallback PDF.js loading task created');
+      }
       
       const pdf = await loadingTask.promise;
       
@@ -63,6 +117,12 @@ const PdfViewer = ({ url, onPdfLoaded, editableDoc, onDocumentChange, activeTool
       if (onPdfLoaded) {
         onPdfLoaded(pdf);
       }
+      
+      // Force render the first page after PDF is loaded
+      setTimeout(() => {
+        console.log('Forcing page render after PDF load...');
+        renderPage();
+      }, 100);
     } catch (err) {
       console.error('Error loading PDF:', err);
       console.error('Error details:', {
@@ -70,21 +130,46 @@ const PdfViewer = ({ url, onPdfLoaded, editableDoc, onDocumentChange, activeTool
         name: err.name,
         stack: err.stack
       });
-      setError(`Failed to load PDF: ${err.message}`);
+      
+      // Provide more helpful error messages
+      let errorMessage = `Failed to load PDF: ${err.message}`;
+      if (err.message.includes('encrypted')) {
+        errorMessage = 'PDF документ зашифрован и не может быть просмотрен.';
+      } else if (err.message.includes('Invalid PDF') || err.message.includes('Invalid object ref')) {
+        errorMessage = 'Неверный формат PDF файла. Убедитесь, что файл не поврежден.';
+      } else if (err.message.includes('network')) {
+        errorMessage = 'Ошибка загрузки PDF. Проверьте подключение к интернету.';
+      } else if (err.message.includes('Expected instance of t')) {
+        errorMessage = 'Ошибка парсинга PDF. Файл может быть поврежден или использовать неподдерживаемый формат.';
+      } else if (err.message.includes('memory') || err.message.includes('out of memory')) {
+        errorMessage = 'PDF файл слишком большой для обработки. Попробуйте файл меньшего размера.';
+      } else if (err.message.includes('worker') || err.message.includes('MIME type')) {
+        errorMessage = 'Ошибка загрузки PDF. Попробуйте обновить страницу или использовать другой браузер.';
+      } else if (err.message.includes('fake worker')) {
+        errorMessage = 'Ошибка инициализации PDF. Попробуйте обновить страницу.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const renderPage = async () => {
-    if (!pdfDoc || !canvasRef.current) return;
+    if (!pdfDoc || !canvasRef.current) {
+      console.log('Cannot render page - pdfDoc:', !!pdfDoc, 'canvasRef:', !!canvasRef.current);
+      return;
+    }
 
     try {
+      console.log('Rendering page', currentPage, 'of', totalPages);
       const page = await pdfDoc.getPage(currentPage);
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       
       const viewport = page.getViewport({ scale, rotation });
+      console.log('Viewport dimensions:', viewport.width, 'x', viewport.height);
+      
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
@@ -93,7 +178,9 @@ const PdfViewer = ({ url, onPdfLoaded, editableDoc, onDocumentChange, activeTool
         viewport: viewport
       };
 
+      console.log('Starting page render...');
       await page.render(renderContext).promise;
+      console.log('Page render completed');
       
       // Render annotations on top of PDF
       renderAnnotations(context);
